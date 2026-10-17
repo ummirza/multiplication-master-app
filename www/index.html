@@ -5,16 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Multiplication Master | Dynamic Adaptive Practice</title>
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="vendor/fa.css">
     <!-- Chart.js for Weakness & Speed Breakdown -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="vendor/chart.js"></script>
     <!-- Canvas Confetti for High Score Celebrations -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="vendor/confetti.js"></script>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link href="vendor/fonts.css" rel="stylesheet">
 
     <style>
         body {
@@ -41,9 +39,25 @@
             transition: all 0.2s ease-in-out;
         }
 
-        .glass-card:hover {
-            border-color: rgba(99, 102, 241, 0.4);
-            transform: translateY(-2px);
+        /* Hover lift only on devices with a real pointer, so taps don't leave cards stuck "lifted" */
+        @media (hover: hover) {
+            .glass-card:hover {
+                border-color: rgba(99, 102, 241, 0.4);
+                transform: translateY(-2px);
+            }
+        }
+
+        /* On-screen keypad */
+        .key {
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            transition: transform 0.08s ease, background-color 0.08s ease;
+        }
+
+        .key:active {
+            transform: scale(0.94);
+            background-color: rgba(99, 102, 241, 0.25);
         }
 
         /* Pop & Ripple Animations */
@@ -99,6 +113,9 @@
             background: rgba(99, 102, 241, 0.7);
         }
     </style>
+    <!-- Tailwind CSS (precompiled by scripts/build-css.sh). Loaded after the custom styles above so
+         utility classes (e.g. the selected-state highlight) win over .glass-card, as with the CDN script. -->
+    <link rel="stylesheet" href="vendor/app.css">
 </head>
 <body class="flex flex-col min-h-screen justify-between selection:bg-indigo-500 selection:text-white">
 
@@ -120,7 +137,7 @@
                 <span class="hidden sm:inline" id="soundLabel">Sound ON</span>
             </button>
 
-            <button onclick="switchTab('analytics')" class="p-2.5 sm:px-4 sm:py-2 rounded-xl glass-card text-slate-300 hover:text-white flex items-center space-x-2 text-sm font-medium">
+            <button id="analyticsBtn" onclick="switchTab('analytics')" class="p-2.5 sm:px-4 sm:py-2 rounded-xl glass-card text-slate-300 hover:text-white flex items-center space-x-2 text-sm font-medium">
                 <i class="fa-solid fa-chart-column text-indigo-400"></i>
                 <span class="hidden sm:inline">Analytics</span>
             </button>
@@ -128,17 +145,29 @@
     </header>
 
     <!-- MAIN CONTAINER -->
-    <main class="w-full max-w-4xl mx-auto px-4 py-4 flex-grow flex flex-col justify-center">
+    <main class="w-full max-w-4xl mx-auto px-4 py-2 sm:py-4 flex-grow flex flex-col justify-center">
 
         <!-- VIEW 1: SETUP SCREEN -->
         <div id="setupView" class="glass-panel rounded-3xl p-6 sm:p-10 shadow-2xl space-y-8 animate-fade-in">
+            <!-- Active Player -->
+            <button onclick="switchTab('players')" class="w-full flex items-center justify-between p-3 rounded-2xl glass-card">
+                <div class="flex items-center space-x-3 min-w-0">
+                    <span id="playerAvatar" class="w-10 h-10 shrink-0 rounded-full flex items-center justify-center font-bold text-white bg-indigo-500">P</span>
+                    <div class="text-left min-w-0">
+                        <span class="text-xs text-slate-400 block">Practicing as</span>
+                        <span id="playerName" class="font-semibold text-white block truncate">Player 1</span>
+                    </div>
+                </div>
+                <span class="text-xs text-indigo-300 font-semibold shrink-0 pl-2">Switch <i class="fa-solid fa-chevron-right ml-1"></i></span>
+            </button>
+
             <div class="text-center space-y-3">
                 <span class="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 uppercase tracking-widest">
                     Adaptive Quiz Setup
                 </span>
                 <h2 class="text-2xl sm:text-4xl font-extrabold text-white">Select Your Practice Duration</h2>
                 <p class="text-slate-400 text-sm sm:text-base max-w-xl mx-auto">
-                    The adaptive algorithm tracks your response speed per multiplication table. Slower or missed tables will automatically appear more frequently!
+                    The adaptive algorithm tracks your speed on every single fact, like 7 × 8. Slow or missed facts automatically appear more often until you master them!
                 </p>
             </div>
 
@@ -193,7 +222,7 @@
         </div>
 
         <!-- VIEW 2: ACTIVE QUIZ SCREEN -->
-        <div id="quizView" class="hidden glass-panel rounded-3xl p-6 sm:p-10 shadow-2xl space-y-6 relative overflow-hidden">
+        <div id="quizView" class="hidden glass-panel rounded-3xl p-5 sm:p-10 shadow-2xl space-y-4 sm:space-y-6 relative overflow-hidden">
             <!-- Progress Bar -->
             <div class="w-full bg-slate-800/80 rounded-full h-2 overflow-hidden">
                 <div id="progressBar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full w-full transition-all duration-1000"></div>
@@ -221,7 +250,7 @@
             </div>
 
             <!-- Question Box -->
-            <div id="questionContainer" class="py-8 sm:py-12 text-center space-y-6 transition-all duration-200">
+            <div id="questionContainer" class="py-2 sm:py-8 text-center space-y-4 sm:space-y-6 transition-all duration-200">
                 <div class="text-slate-400 text-xs uppercase tracking-widest font-semibold flex items-center justify-center space-x-2">
                     <span id="adaptiveTag" class="px-2.5 py-1 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20">
                         <i class="fa-solid fa-sliders text-[10px] mr-1"></i> Standard Question
@@ -229,7 +258,7 @@
                 </div>
 
                 <!-- Number Display -->
-                <div class="text-5xl sm:text-7xl font-extrabold font-mono-num tracking-tight text-white flex justify-center items-center space-x-4">
+                <div id="questionLine" class="text-5xl sm:text-7xl font-extrabold font-mono-num tracking-tight text-white flex justify-center items-center space-x-3 sm:space-x-4">
                     <span id="factor1">7</span>
                     <span class="text-indigo-400">×</span>
                     <span id="factor2">8</span>
@@ -237,24 +266,43 @@
                     <span class="text-indigo-300">?</span>
                 </div>
 
-                <!-- Input Form -->
-                <form onsubmit="submitAnswer(event)" class="max-w-xs mx-auto space-y-4">
-                    <input type="number" id="answerInput" placeholder="Answer" autofocus autocomplete="off"
-                        class="w-full py-3.5 px-6 rounded-2xl bg-slate-900/80 border-2 border-indigo-500/40 text-center text-3xl font-bold font-mono-num text-white focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/20 transition-all">
-                    
-                    <button type="submit" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-all shadow-lg shadow-indigo-600/30">
-                        Submit Answer (Enter)
-                    </button>
-                </form>
+                <!-- Answer Display + Keypad (physical keyboard also works: digits, Backspace, Enter) -->
+                <div class="max-w-xs mx-auto space-y-3 sm:space-y-4">
+                    <div id="answerDisplay" class="w-full h-16 px-6 rounded-2xl bg-slate-900/80 border-2 border-indigo-500/40 flex items-center justify-center text-3xl font-bold font-mono-num">
+                        <span id="answerText" class="text-slate-500">Answer</span>
+                    </div>
+
+                    <div id="keypad" class="grid grid-cols-3 gap-2 sm:gap-3">
+                        <button class="key h-14 rounded-xl glass-card text-2xl font-bold font-mono-num text-white" onpointerdown="keyTap(event, '1')">1</button>
+                        <button class="key h-14 rounded-xl glass-card text-2xl font-bold font-mono-num text-white" onpointerdown="keyTap(event, '2')">2</button>
+                        <button class="key h-14 rounded-xl glass-card text-2xl font-bold font-mono-num text-white" onpointerdown="keyTap(event, '3')">3</button>
+                        <button class="key h-14 rounded-xl glass-card text-2xl font-bold font-mono-num text-white" onpointerdown="keyTap(event, '4')">4</button>
+                        <button class="key h-14 rounded-xl glass-card text-2xl font-bold font-mono-num text-white" onpointerdown="keyTap(event, '5')">5</button>
+                        <button class="key h-14 rounded-xl glass-card text-2xl font-bold font-mono-num text-white" onpointerdown="keyTap(event, '6')">6</button>
+                        <button class="key h-14 rounded-xl glass-card text-2xl font-bold font-mono-num text-white" onpointerdown="keyTap(event, '7')">7</button>
+                        <button class="key h-14 rounded-xl glass-card text-2xl font-bold font-mono-num text-white" onpointerdown="keyTap(event, '8')">8</button>
+                        <button class="key h-14 rounded-xl glass-card text-2xl font-bold font-mono-num text-white" onpointerdown="keyTap(event, '9')">9</button>
+                        <button class="key h-14 rounded-xl glass-card text-xl text-slate-300" onpointerdown="keyTap(event, 'back')" aria-label="Delete">
+                            <i class="fa-solid fa-delete-left"></i>
+                        </button>
+                        <button class="key h-14 rounded-xl glass-card text-2xl font-bold font-mono-num text-white" onpointerdown="keyTap(event, '0')">0</button>
+                        <button class="key h-14 rounded-xl btn-gradient text-xl text-white" onpointerdown="keyTap(event, 'enter')" aria-label="Submit answer">
+                            <i class="fa-solid fa-check"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            <!-- Quit Button -->
-            <div class="flex justify-between items-center pt-2">
-                <button onclick="confirmQuit()" class="text-xs text-slate-400 hover:text-rose-400 transition-colors flex items-center space-x-1">
+            <!-- Quit / Pause Buttons -->
+            <div class="flex justify-between items-center pt-1">
+                <button onclick="confirmQuit()" class="text-xs text-slate-400 hover:text-rose-400 transition-colors flex items-center space-x-1 py-2">
                     <i class="fa-solid fa-door-open"></i>
                     <span>Quit Session</span>
                 </button>
-                <div id="questionFeedback" class="text-xs font-semibold h-4 text-slate-300"></div>
+                <button onclick="pauseSession()" class="text-xs text-slate-400 hover:text-indigo-300 transition-colors flex items-center space-x-1 py-2">
+                    <i class="fa-solid fa-pause"></i>
+                    <span>Pause</span>
+                </button>
             </div>
         </div>
 
@@ -311,13 +359,34 @@
             <div class="flex justify-between items-center border-b border-slate-700/50 pb-4">
                 <div>
                     <h2 class="text-2xl font-bold text-white">Speed & Weakness Analytics</h2>
-                    <p class="text-xs text-slate-400">Response time per multiplication table (2 to 12)</p>
+                    <p id="analyticsPlayer" class="text-xs text-slate-400">Stats for Player 1</p>
                 </div>
-                <button onclick="switchTab('setup')" class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center space-x-1">
+                <button onclick="switchTab('setup')" class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center space-x-1 shrink-0 pl-2">
                     <i class="fa-solid fa-arrow-left"></i>
                     <span>Back to Practice</span>
                 </button>
             </div>
+
+            <!-- Mastery Grid: one cell per fact, 2×2 up to 12×12 -->
+            <div class="p-4 rounded-2xl glass-card space-y-3">
+                <div class="flex justify-between items-baseline">
+                    <h3 class="text-sm font-semibold text-white">Fact Mastery</h3>
+                    <span id="masterySummary" class="text-xs text-emerald-300 font-mono-num">0 / 66 mastered</span>
+                </div>
+                <div class="w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
+                    <div id="masteryBar" class="bg-emerald-500 h-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <div id="masteryGrid" class="grid gap-[3px] text-[10px] font-mono-num text-slate-400" style="grid-template-columns: repeat(12, minmax(0, 1fr));"></div>
+                <div id="factDetail" class="text-xs text-slate-300 min-h-[1rem] text-center">Tap a square to see that fact's stats.</div>
+                <div class="flex flex-wrap justify-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
+                    <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-slate-700/60 mr-1.5"></span>New</span>
+                    <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-rose-500/80 mr-1.5"></span>Struggling</span>
+                    <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-amber-400/80 mr-1.5"></span>Learning</span>
+                    <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-emerald-500/80 mr-1.5"></span>Mastered</span>
+                </div>
+            </div>
+
+            <p class="text-xs text-slate-400">Average response time per multiplication table (2 to 12)</p>
 
             <!-- Chart Container -->
             <div class="p-4 rounded-2xl glass-card relative h-64 sm:h-80 w-full">
@@ -347,12 +416,49 @@
             </div>
         </div>
 
+        <!-- VIEW 5: PLAYERS -->
+        <div id="playersView" class="hidden glass-panel rounded-3xl p-6 sm:p-10 shadow-2xl space-y-6">
+            <div class="flex justify-between items-center border-b border-slate-700/50 pb-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white">Who's practicing?</h2>
+                    <p class="text-xs text-slate-400">Each player has their own scores and mastery.</p>
+                </div>
+                <button onclick="switchTab('setup')" class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center space-x-1 shrink-0 pl-2">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>Back</span>
+                </button>
+            </div>
+
+            <div id="playerList" class="space-y-3"></div>
+
+            <form onsubmit="addPlayer(event)" class="flex gap-2">
+                <input id="newPlayerName" type="text" maxlength="20" placeholder="New player name" autocomplete="off"
+                    class="flex-1 min-w-0 py-3 px-4 rounded-xl bg-slate-900/80 border-2 border-indigo-500/40 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400">
+                <button type="submit" class="px-5 rounded-xl btn-gradient text-white font-bold text-sm">
+                    <i class="fa-solid fa-plus mr-1"></i> Add
+                </button>
+            </form>
+        </div>
+
     </main>
 
     <!-- FOOTER -->
-    <footer class="w-full max-w-6xl mx-auto p-4 text-center text-xs text-slate-500">
+    <footer id="footer" class="w-full max-w-6xl mx-auto p-4 text-center text-xs text-slate-500">
         Multiplication Master &bull; Adaptive Learning Platform
     </footer>
+
+    <!-- IN-APP DIALOG (replaces browser confirm() popups) -->
+    <div id="modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/70" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="glass-panel rounded-3xl p-6 w-full max-w-sm text-center space-y-4 shadow-2xl">
+            <div id="modalIcon" class="inline-flex w-14 h-14 items-center justify-center rounded-full text-2xl"></div>
+            <h3 id="modalTitle" class="text-xl font-bold text-white"></h3>
+            <p id="modalText" class="text-sm text-slate-400"></p>
+            <div class="flex gap-3 pt-2">
+                <button id="modalCancel" class="flex-1 py-3 rounded-xl glass-card text-slate-300 font-semibold text-sm"></button>
+                <button id="modalConfirm" class="flex-1 py-3 rounded-xl text-white font-bold text-sm"></button>
+            </div>
+        </div>
+    </div>
 
     <script>
         /* ==========================================================================
@@ -366,9 +472,12 @@
         let timerInterval = null;
         let questionStartTime = 0;
         let currentQuestion = { num1: 2, num2: 2, answer: 4 };
+        let answerBuffer = "";
+        let pausedAt = 0;
 
         let sessionState = {
             active: false,
+            paused: false,
             timeRemaining: 0,
             score: 0,
             totalQuestions: 0,
@@ -376,16 +485,52 @@
             totalResponseTime: 0
         };
 
-        // Load persisted high scores & table speed statistics
-        let highScores = JSON.parse(localStorage.getItem(STORAGE_KEY_SCORES)) || { 5: 0, 10: 0, 15: 0, 20: 0 };
-        let tableStats = JSON.parse(localStorage.getItem(STORAGE_KEY_STATS)) || {};
+        const STORAGE_KEY_FACTS = "multiplication_master_fact_stats";
+        const STORAGE_KEY_PLAYERS = "multiplication_master_players";
 
-        // Ensure stats structure exists for tables 2 through 12
-        for (let t = 2; t <= 12; t++) {
-            if (!tableStats[t]) {
-                tableStats[t] = { totalTime: 0, count: 0, mistakes: 0 };
+        const AVATAR_COLORS = ['bg-indigo-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500', 'bg-purple-500'];
+
+        function loadJSON(key, fallback) {
+            try {
+                return JSON.parse(localStorage.getItem(key)) || fallback;
+            } catch (e) {
+                return fallback;
             }
         }
+
+        // Every player's data lives under its own keys, e.g. "multiplication_master_scores__p1"
+        function playerKey(base, id = playersData.activeId) {
+            return `${base}__${id}`;
+        }
+
+        // Load players; on first run, carry over progress saved before player profiles existed
+        let playersData = loadJSON(STORAGE_KEY_PLAYERS, null);
+        if (!playersData) {
+            playersData = { activeId: 'p1', nextId: 2, players: [{ id: 'p1', name: 'Player 1', color: 0 }] };
+            [STORAGE_KEY_SCORES, STORAGE_KEY_STATS].forEach(base => {
+                const legacy = localStorage.getItem(base);
+                if (legacy) localStorage.setItem(playerKey(base, 'p1'), legacy);
+            });
+            localStorage.setItem(STORAGE_KEY_PLAYERS, JSON.stringify(playersData));
+        }
+
+        let highScores, tableStats, factStats;
+
+        // Load the active player's high scores, table speed statistics and per-fact mastery
+        function loadPlayerData() {
+            highScores = loadJSON(playerKey(STORAGE_KEY_SCORES), { 5: 0, 10: 0, 15: 0, 20: 0 });
+            tableStats = loadJSON(playerKey(STORAGE_KEY_STATS), {});
+            factStats = loadJSON(playerKey(STORAGE_KEY_FACTS), {});
+
+            // Ensure stats structure exists for tables 2 through 12
+            for (let t = 2; t <= 12; t++) {
+                if (!tableStats[t]) {
+                    tableStats[t] = { totalTime: 0, count: 0, mistakes: 0 };
+                }
+            }
+        }
+
+        loadPlayerData();
 
         /* ==========================================================================
            WEB AUDIO SYNTHESIZER (No external audio assets needed)
@@ -460,6 +605,7 @@
                 if (el) el.innerText = `Best: ${highScores[min] || 0}`;
             });
             updateWeaknessBanner();
+            renderActivePlayer();
         }
 
         function setDuration(minutes) {
@@ -478,6 +624,11 @@
             document.getElementById('quizView').classList.add('hidden');
             document.getElementById('resultsView').classList.add('hidden');
             document.getElementById('analyticsView').classList.add('hidden');
+            document.getElementById('playersView').classList.add('hidden');
+
+            // Keep the quiz screen compact: no footer, and no jumping to Analytics while the clock runs
+            document.getElementById('footer').classList.toggle('hidden', tabName === 'quiz');
+            document.getElementById('analyticsBtn').classList.toggle('hidden', tabName === 'quiz');
 
             if (tabName === 'setup') {
                 updateRecordsUI();
@@ -488,44 +639,88 @@
                 document.getElementById('resultsView').classList.remove('hidden');
             } else if (tabName === 'analytics') {
                 renderAnalyticsChart();
+                renderMasteryGrid();
                 document.getElementById('analyticsView').classList.remove('hidden');
+            } else if (tabName === 'players') {
+                renderPlayerList();
+                document.getElementById('playersView').classList.remove('hidden');
             }
+            window.scrollTo(0, 0);
         }
 
         /* ==========================================================================
            ADAPTIVE QUESTION ENGINE
            ========================================================================== */
-        function getTableWeights() {
-            let weights = {};
-            for (let t = 2; t <= 12; t++) {
-                let stat = tableStats[t];
-                if (!stat || stat.count === 0) {
-                    weights[t] = 5.0; // Unpracticed baseline priority
-                } else {
-                    let avgSpeed = stat.totalTime / stat.count;
-                    let mistakePenalty = stat.mistakes * 2.0;
-                    weights[t] = Math.max(1.0, avgSpeed + mistakePenalty);
-                }
-            }
-            return weights;
+        // Each fact is tracked on its own; 7×8 and 8×7 count as the same fact (66 facts from 2×2 to 12×12).
+        // A fact's "speed" is a recent-weighted average, so improvement shows up quickly.
+        const FACT_SPEED_SMOOTHING = 0.4;   // weight of the newest answer in the running average
+        const WRONG_ANSWER_PENALTY_SEC = 8; // a mistake counts like a very slow answer
+        const MAX_COUNTED_TIME_SEC = 15;    // cap so a distracted pause doesn't skew the average
+        const MASTERED_SPEED_SEC = 3;       // fast enough to be "automatic"
+        const STRUGGLING_SPEED_SEC = 6;
+        const TOTAL_FACTS = 66;
+
+        // How often each mastery level is asked, relative to a mastered fact
+        const LEVEL_WEIGHTS = { new: 3, struggling: 8, learning: 4, mastered: 1 };
+
+        let lastFactKey = null;
+
+        function factKey(a, b) {
+            return a <= b ? `${a}x${b}` : `${b}x${a}`;
         }
 
-        function pickWeightedTable(weights) {
-            let tables = Object.keys(weights).map(Number);
-            let totalWeight = tables.reduce((sum, t) => sum + weights[t], 0);
-            let randomNum = Math.random() * totalWeight;
+        function getFactLevel(stat) {
+            if (!stat || stat.attempts === 0) return 'new';
+            if (stat.streak === 0 || stat.speed > STRUGGLING_SPEED_SEC) return 'struggling';
+            if (stat.speed <= MASTERED_SPEED_SEC && stat.streak >= 2) return 'mastered';
+            return 'learning';
+        }
 
-            for (let t of tables) {
-                if (randomNum < weights[t]) return t;
-                randomNum -= weights[t];
+        function countMastered(stats) {
+            return Object.values(stats).filter(s => getFactLevel(s) === 'mastered').length;
+        }
+
+        function recordFact(a, b, isCorrect, responseTimeSec) {
+            const key = factKey(a, b);
+            const stat = factStats[key] || { attempts: 0, correct: 0, speed: null, streak: 0 };
+            const sample = isCorrect ? Math.min(responseTimeSec, MAX_COUNTED_TIME_SEC) : WRONG_ANSWER_PENALTY_SEC;
+            stat.speed = stat.speed === null ? sample : stat.speed * (1 - FACT_SPEED_SMOOTHING) + sample * FACT_SPEED_SMOOTHING;
+            stat.attempts += 1;
+            if (isCorrect) {
+                stat.correct += 1;
+                stat.streak += 1;
+            } else {
+                stat.streak = 0;
             }
-            return 2;
+            factStats[key] = stat;
+        }
+
+        // Weighted random pick over all facts, never repeating the previous one back-to-back
+        function pickFact() {
+            const candidates = [];
+            let totalWeight = 0;
+            for (let a = 2; a <= 12; a++) {
+                for (let b = a; b <= 12; b++) {
+                    const key = factKey(a, b);
+                    if (key === lastFactKey) continue;
+                    const weight = LEVEL_WEIGHTS[getFactLevel(factStats[key])];
+                    candidates.push({ a, b, key, weight });
+                    totalWeight += weight;
+                }
+            }
+            let randomNum = Math.random() * totalWeight;
+            for (const c of candidates) {
+                if (randomNum < c.weight) return c;
+                randomNum -= c.weight;
+            }
+            return candidates[candidates.length - 1];
         }
 
         function generateQuestion() {
-            const weights = getTableWeights();
-            let num1 = pickWeightedTable(weights);
-            let num2 = Math.floor(Math.random() * 11) + 2; // 2 to 12
+            const fact = pickFact();
+            lastFactKey = fact.key;
+            let num1 = fact.a;
+            let num2 = fact.b;
 
             // Randomly swap positions for variety
             if (Math.random() > 0.5) {
@@ -545,21 +740,156 @@
             document.getElementById('factor2').innerText = num2;
 
             // Highlight adaptive weight status
-            let isWeakFocus = (weights[num1] > 3.5 || weights[num2] > 3.5);
+            const level = getFactLevel(factStats[fact.key]);
             const tag = document.getElementById('adaptiveTag');
-            if (isWeakFocus) {
+            if (level === 'new') {
+                tag.className = "px-2.5 py-1 rounded-md bg-sky-500/10 text-sky-300 border border-sky-500/20";
+                tag.innerHTML = `<i class="fa-solid fa-seedling text-[10px] mr-1"></i> New Fact`;
+            } else if (level === 'struggling' || level === 'learning') {
                 tag.className = "px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20";
                 tag.innerHTML = `<i class="fa-solid fa-fire text-[10px] mr-1"></i> Adaptive Focus Question`;
             } else {
                 tag.className = "px-2.5 py-1 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20";
-                tag.innerHTML = `<i class="fa-solid fa-sliders text-[10px] mr-1"></i> Standard Question`;
+                tag.innerHTML = `<i class="fa-solid fa-sliders text-[10px] mr-1"></i> Review Question`;
             }
 
-            const input = document.getElementById('answerInput');
-            input.value = "";
-            input.focus();
+            answerBuffer = "";
+            renderAnswer();
 
             questionStartTime = performance.now();
+        }
+
+        /* ==========================================================================
+           KEYPAD INPUT
+           ========================================================================== */
+        function keyTap(e, key) {
+            e.preventDefault(); // react on touch-down for speed; don't steal focus
+            pressKey(key);
+        }
+
+        function pressKey(key) {
+            if (!sessionState.active || sessionState.paused) return;
+            if (key === 'enter') {
+                submitAnswer();
+                return;
+            }
+            if (key === 'back') {
+                answerBuffer = answerBuffer.slice(0, -1);
+            } else if (answerBuffer.length < 3) { // largest answer is 144
+                answerBuffer += key;
+            }
+            renderAnswer();
+        }
+
+        function renderAnswer() {
+            const el = document.getElementById('answerText');
+            if (answerBuffer) {
+                el.textContent = answerBuffer;
+                el.className = "text-white";
+            } else {
+                el.textContent = "Answer";
+                el.className = "text-slate-500";
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (isModalOpen()) {
+                if (e.key === 'Escape') { e.preventDefault(); dismissModal(); }
+                return;
+            }
+            if (!sessionState.active) return;
+            if (/^[0-9]$/.test(e.key)) pressKey(e.key);
+            else if (e.key === 'Backspace') pressKey('back');
+            else if (e.key === 'Enter') pressKey('enter');
+            else if (e.key === 'Escape') pauseSession();
+            else return;
+            e.preventDefault();
+        });
+
+        /* ==========================================================================
+           IN-APP DIALOG
+           ========================================================================== */
+        let modalHandlers = null;
+
+        function showModal({ icon, iconClass, title, text, confirmLabel, confirmClass, cancelLabel, onConfirm, onCancel, onDismiss }) {
+            document.getElementById('modalIcon').className = `inline-flex w-14 h-14 items-center justify-center rounded-full text-2xl ${iconClass}`;
+            document.getElementById('modalIcon').innerHTML = `<i class="fa-solid ${icon}"></i>`;
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalText').textContent = text;
+            document.getElementById('modalCancel').textContent = cancelLabel;
+            const confirmBtn = document.getElementById('modalConfirm');
+            confirmBtn.textContent = confirmLabel;
+            confirmBtn.className = `flex-1 py-3 rounded-xl text-white font-bold text-sm ${confirmClass}`;
+            // Back button / Escape fall back to Cancel unless the dialog says otherwise
+            modalHandlers = { onConfirm, onCancel, onDismiss: onDismiss || onCancel };
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        function closeModal(handlerName) {
+            const handlers = modalHandlers;
+            modalHandlers = null;
+            document.getElementById('modal').classList.add('hidden');
+            if (handlers && handlers[handlerName]) handlers[handlerName]();
+        }
+
+        function isModalOpen() {
+            return modalHandlers !== null;
+        }
+
+        function dismissModal() {
+            closeModal('onDismiss');
+        }
+
+        document.getElementById('modalConfirm').addEventListener('click', () => closeModal('onConfirm'));
+        document.getElementById('modalCancel').addEventListener('click', () => closeModal('onCancel'));
+
+        /* ==========================================================================
+           PAUSE / RESUME (also triggered when the app or tab goes to the background)
+           ========================================================================== */
+        function pauseSession() {
+            if (!sessionState.active || sessionState.paused) return;
+            sessionState.paused = true;
+            pausedAt = performance.now();
+            showModal({
+                icon: 'fa-pause',
+                iconClass: 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30',
+                title: 'Paused',
+                text: 'The clock is stopped. Take a breather!',
+                confirmLabel: 'Resume',
+                confirmClass: 'btn-gradient',
+                cancelLabel: 'Quit Session',
+                onConfirm: resumeSession,
+                onCancel: quitSession,
+                onDismiss: resumeSession
+            });
+        }
+
+        function resumeSession() {
+            if (!sessionState.paused) return;
+            sessionState.paused = false;
+            // Don't count paused time against the current question's response time
+            questionStartTime += performance.now() - pausedAt;
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) pauseSession();
+        });
+
+        // Called by the Android wrapper's back button. Returns true if handled in-page.
+        function handleBack() {
+            if (isModalOpen()) {
+                dismissModal();
+                return true;
+            }
+            if (sessionState.active) {
+                confirmQuit();
+                return true;
+            }
+            if (!document.getElementById('setupView').classList.contains('hidden')) {
+                return false; // on the home screen: let the app close
+            }
+            switchTab('setup');
+            return true;
         }
 
         /* ==========================================================================
@@ -568,12 +898,15 @@
         function startQuiz() {
             sessionState = {
                 active: true,
+                paused: false,
                 timeRemaining: selectedDuration * 60,
                 score: 0,
                 totalQuestions: 0,
                 correctAnswers: 0,
-                totalResponseTime: 0
+                totalResponseTime: 0,
+                masteredAtStart: countMastered(factStats)
             };
+            lastFactKey = null;
 
             document.getElementById('scoreDisplay').innerText = "0";
             document.getElementById('targetRecordDisplay').innerText = highScores[selectedDuration] || 0;
@@ -587,7 +920,7 @@
         }
 
         function updateTimer() {
-            if (!sessionState.active) return;
+            if (!sessionState.active || sessionState.paused) return;
             sessionState.timeRemaining--;
 
             updateTimerDisplay();
@@ -607,12 +940,10 @@
             document.getElementById('progressBar').style.width = `${Math.max(0, pct)}%`;
         }
 
-        function submitAnswer(e) {
-            e.preventDefault();
-            if (!sessionState.active) return;
+        function submitAnswer() {
+            if (!sessionState.active || sessionState.paused) return;
 
-            const input = document.getElementById('answerInput');
-            const userVal = parseInt(input.value.trim(), 10);
+            const userVal = parseInt(answerBuffer, 10);
             if (isNaN(userVal)) return;
 
             const responseTimeSec = (performance.now() - questionStartTime) / 1000;
@@ -629,9 +960,13 @@
                 tableStats[n].count += 1;
             });
 
-            const qContainer = document.getElementById('questionContainer');
+            // Animate only the question itself, not the keypad
+            const qContainer = document.getElementById('questionLine');
 
-            if (userVal === currentQuestion.answer) {
+            const isCorrect = userVal === currentQuestion.answer;
+            recordFact(num1, num2, isCorrect, responseTimeSec);
+
+            if (isCorrect) {
                 // Correct answer
                 sessionState.score++;
                 sessionState.correctAnswers++;
@@ -652,18 +987,40 @@
             }
 
             // Save updated stats to localStorage
-            localStorage.setItem(STORAGE_KEY_STATS, JSON.stringify(tableStats));
+            localStorage.setItem(playerKey(STORAGE_KEY_STATS), JSON.stringify(tableStats));
+            localStorage.setItem(playerKey(STORAGE_KEY_FACTS), JSON.stringify(factStats));
 
             // Generate next question
             generateQuestion();
         }
 
         function confirmQuit() {
-            if (confirm("Are you sure you want to quit this practice session early?")) {
-                clearInterval(timerInterval);
-                sessionState.active = false;
-                switchTab('setup');
+            if (!sessionState.active) return;
+            // Stop the clock while deciding (the old browser confirm() did this implicitly)
+            const wasPaused = sessionState.paused;
+            if (!wasPaused) {
+                sessionState.paused = true;
+                pausedAt = performance.now();
             }
+            if (isModalOpen()) closeModal(null);
+            showModal({
+                icon: 'fa-door-open',
+                iconClass: 'bg-rose-500/20 text-rose-300 border border-rose-500/30',
+                title: 'Quit session?',
+                text: 'Are you sure you want to quit this practice session early? This score won\'t be saved.',
+                confirmLabel: 'Quit',
+                confirmClass: 'bg-rose-600 hover:bg-rose-500',
+                cancelLabel: 'Keep Going',
+                onConfirm: quitSession,
+                onCancel: resumeSession
+            });
+        }
+
+        function quitSession() {
+            clearInterval(timerInterval);
+            sessionState.active = false;
+            sessionState.paused = false;
+            switchTab('setup');
         }
 
         function endQuiz() {
@@ -676,7 +1033,7 @@
 
             if (sessionState.score > currentBest) {
                 highScores[selectedDuration] = sessionState.score;
-                localStorage.setItem(STORAGE_KEY_SCORES, JSON.stringify(highScores));
+                localStorage.setItem(playerKey(STORAGE_KEY_SCORES), JSON.stringify(highScores));
                 isNewRecord = true;
             }
 
@@ -694,6 +1051,11 @@
                 : 0;
             document.getElementById('resAvgSpeed').innerText = `${avgSpeed}s`;
 
+            const newlyMastered = countMastered(factStats) - sessionState.masteredAtStart;
+            document.getElementById('resultsSubtext').innerText = newlyMastered > 0
+                ? `Great effort! You mastered ${newlyMastered} new ${newlyMastered === 1 ? 'fact' : 'facts'} this session.`
+                : "Great effort! Here is your performance summary.";
+
             const banner = document.getElementById('highScoreBanner');
             if (isNewRecord && sessionState.score > 0) {
                 banner.classList.remove('hidden');
@@ -710,8 +1072,22 @@
            WEAKNESS BANNER & CHART ANALYTICS
            ========================================================================== */
         function updateWeaknessBanner() {
-            let sorted = getSortedWeakness();
             const textEl = document.getElementById('weaknessText');
+            // Prefer specific weak facts; fall back to per-table data recorded before fact tracking existed
+            const weakFacts = Object.entries(factStats)
+                .filter(([, s]) => ['struggling', 'learning'].includes(getFactLevel(s)))
+                .sort((x, y) => y[1].speed - x[1].speed)
+                .slice(0, 3)
+                .map(([key]) => key.replace('x', '×'));
+            if (weakFacts.length > 0) {
+                textEl.innerText = `Focusing extra practice on: ${weakFacts.join(', ')}`;
+                return;
+            }
+            if (Object.keys(factStats).length > 0) {
+                textEl.innerText = "Everything you've practiced is mastered. Time to learn new facts!";
+                return;
+            }
+            let sorted = getSortedWeakness();
             if (sorted.length === 0) {
                 textEl.innerText = "No prior speed data recorded yet. Practice all tables equally!";
             } else {
@@ -783,15 +1159,242 @@
         }
 
         function resetStats() {
-            if (confirm("Reset all historical response times and mistake data?")) {
-                tableStats = {};
-                for (let t = 2; t <= 12; t++) {
-                    tableStats[t] = { totalTime: 0, count: 0, mistakes: 0 };
+            showModal({
+                icon: 'fa-trash',
+                iconClass: 'bg-rose-500/20 text-rose-300 border border-rose-500/30',
+                title: 'Reset statistics?',
+                text: `Reset all response times, mistakes and fact mastery for ${getActivePlayer().name}? High scores are kept.`,
+                confirmLabel: 'Reset',
+                confirmClass: 'bg-rose-600 hover:bg-rose-500',
+                cancelLabel: 'Cancel',
+                onConfirm: () => {
+                    tableStats = {};
+                    for (let t = 2; t <= 12; t++) {
+                        tableStats[t] = { totalTime: 0, count: 0, mistakes: 0 };
+                    }
+                    factStats = {};
+                    localStorage.setItem(playerKey(STORAGE_KEY_STATS), JSON.stringify(tableStats));
+                    localStorage.setItem(playerKey(STORAGE_KEY_FACTS), JSON.stringify(factStats));
+                    renderAnalyticsChart();
+                    renderMasteryGrid();
+                    updateRecordsUI();
                 }
-                localStorage.setItem(STORAGE_KEY_STATS, JSON.stringify(tableStats));
-                renderAnalyticsChart();
-                updateRecordsUI();
+            });
+        }
+
+        /* ==========================================================================
+           MASTERY GRID
+           ========================================================================== */
+        const LEVEL_STYLES = {
+            new:        { cell: 'bg-slate-700/60', label: 'New' },
+            struggling: { cell: 'bg-rose-500/80', label: 'Struggling' },
+            learning:   { cell: 'bg-amber-400/80', label: 'Learning' },
+            mastered:   { cell: 'bg-emerald-500/80', label: 'Mastered' }
+        };
+
+        function renderMasteryGrid() {
+            const grid = document.getElementById('masteryGrid');
+            grid.replaceChildren();
+
+            const header = (text) => {
+                const el = document.createElement('div');
+                el.className = 'flex items-center justify-center aspect-square';
+                el.textContent = text;
+                return el;
+            };
+
+            grid.appendChild(header('×'));
+            for (let c = 2; c <= 12; c++) grid.appendChild(header(c));
+
+            for (let r = 2; r <= 12; r++) {
+                grid.appendChild(header(r));
+                for (let c = 2; c <= 12; c++) {
+                    const level = getFactLevel(factStats[factKey(r, c)]);
+                    const cell = document.createElement('button');
+                    cell.className = `aspect-square rounded-[3px] ${LEVEL_STYLES[level].cell}`;
+                    cell.setAttribute('aria-label', `${r} × ${c}: ${LEVEL_STYLES[level].label}`);
+                    cell.addEventListener('click', () => showFactDetail(r, c));
+                    grid.appendChild(cell);
+                }
             }
+
+            const mastered = countMastered(factStats);
+            document.getElementById('masterySummary').innerText = `${mastered} / ${TOTAL_FACTS} mastered`;
+            document.getElementById('masteryBar').style.width = `${(mastered / TOTAL_FACTS) * 100}%`;
+            document.getElementById('factDetail').innerText = "Tap a square to see that fact's stats.";
+        }
+
+        function showFactDetail(a, b) {
+            const stat = factStats[factKey(a, b)];
+            const level = getFactLevel(stat);
+            const el = document.getElementById('factDetail');
+            if (level === 'new') {
+                el.innerText = `${a} × ${b} = ${a * b} · Not practiced yet`;
+                return;
+            }
+            const accuracy = Math.round((stat.correct / stat.attempts) * 100);
+            el.innerText = `${a} × ${b} = ${a * b} · ${LEVEL_STYLES[level].label} · ${stat.attempts} ${stat.attempts === 1 ? 'try' : 'tries'} · ${accuracy}% correct · ~${stat.speed.toFixed(1)}s`;
+        }
+
+        /* ==========================================================================
+           PLAYERS
+           ========================================================================== */
+        function getActivePlayer() {
+            return playersData.players.find(p => p.id === playersData.activeId) || playersData.players[0];
+        }
+
+        function savePlayers() {
+            localStorage.setItem(STORAGE_KEY_PLAYERS, JSON.stringify(playersData));
+        }
+
+        function makeAvatar(player, sizeClass) {
+            const el = document.createElement('span');
+            el.className = `${sizeClass} shrink-0 rounded-full flex items-center justify-center font-bold text-white ${AVATAR_COLORS[player.color % AVATAR_COLORS.length]}`;
+            el.textContent = player.name.trim().charAt(0).toUpperCase() || '?';
+            return el;
+        }
+
+        function renderActivePlayer() {
+            const player = getActivePlayer();
+            const avatar = makeAvatar(player, 'w-10 h-10');
+            avatar.id = 'playerAvatar';
+            document.getElementById('playerAvatar').replaceWith(avatar);
+            document.getElementById('playerName').textContent = player.name;
+            document.getElementById('analyticsPlayer').textContent = `Stats for ${player.name}`;
+        }
+
+        function renderPlayerList() {
+            const list = document.getElementById('playerList');
+            list.replaceChildren();
+
+            playersData.players.forEach(player => {
+                const isActive = player.id === playersData.activeId;
+                const facts = loadJSON(playerKey(STORAGE_KEY_FACTS, player.id), {});
+                const scores = loadJSON(playerKey(STORAGE_KEY_SCORES, player.id), {});
+                const best = Math.max(0, ...Object.values(scores).map(Number).filter(n => !isNaN(n)));
+
+                const row = document.createElement('div');
+                row.className = `flex items-center gap-2 p-3 rounded-2xl glass-card ${isActive ? 'border-indigo-500/80 bg-indigo-500/10' : ''}`;
+
+                const select = document.createElement('div'); // not a <button>: it may hold the rename input
+                select.setAttribute('role', 'button');
+                select.className = 'flex-1 min-w-0 flex items-center gap-3 text-left cursor-pointer';
+                select.addEventListener('click', () => selectPlayer(player.id));
+
+                const text = document.createElement('div');
+                text.className = 'min-w-0';
+                const name = document.createElement('span');
+                name.className = 'font-semibold text-white block truncate';
+                name.textContent = player.name;
+                const sub = document.createElement('span');
+                sub.className = 'text-xs text-slate-400 block';
+                sub.textContent = `${countMastered(facts)} / ${TOTAL_FACTS} mastered · Best score ${best}`;
+                text.append(name, sub);
+                select.append(makeAvatar(player, 'w-10 h-10'), text);
+                row.appendChild(select);
+
+                const iconButton = (icon, label, onClick) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'w-9 h-9 shrink-0 rounded-lg text-slate-400 hover:text-white flex items-center justify-center';
+                    btn.setAttribute('aria-label', label);
+                    btn.innerHTML = `<i class="fa-solid ${icon}"></i>`;
+                    btn.addEventListener('click', onClick);
+                    return btn;
+                };
+
+                row.appendChild(iconButton('fa-pen', `Rename ${player.name}`, () => startRename(row, name, player)));
+                if (playersData.players.length > 1) {
+                    row.appendChild(iconButton('fa-trash', `Delete ${player.name}`, () => confirmDeletePlayer(player)));
+                }
+
+                list.appendChild(row);
+            });
+        }
+
+        function selectPlayer(id) {
+            playersData.activeId = id;
+            savePlayers();
+            loadPlayerData();
+            switchTab('setup');
+        }
+
+        function addPlayer(e) {
+            e.preventDefault();
+            const input = document.getElementById('newPlayerName');
+            const name = input.value.trim().slice(0, 20);
+            if (!name) {
+                input.focus();
+                return;
+            }
+            const player = { id: `p${playersData.nextId}`, name, color: playersData.nextId - 1 };
+            playersData.nextId += 1;
+            playersData.players.push(player);
+            input.value = '';
+            input.blur();
+            selectPlayer(player.id);
+        }
+
+        function startRename(row, nameEl, player) {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.maxLength = 20;
+            input.value = player.name;
+            input.className = 'w-full py-1 px-2 rounded-lg bg-slate-900/80 border-2 border-indigo-500/60 text-white font-semibold focus:outline-none';
+            let done = false;
+            const finish = (save) => {
+                if (done) return;
+                done = true;
+                const newName = input.value.trim().slice(0, 20);
+                if (save && newName) {
+                    player.name = newName;
+                    savePlayers();
+                    renderActivePlayer();
+                }
+                renderPlayerList();
+            };
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') finish(true);
+                if (e.key === 'Escape') finish(false);
+            });
+            input.addEventListener('blur', () => finish(true));
+            input.addEventListener('click', (e) => e.stopPropagation()); // don't select the player while editing
+            nameEl.replaceWith(input);
+            input.focus();
+            input.select();
+        }
+
+        function confirmDeletePlayer(player) {
+            showModal({
+                icon: 'fa-user-xmark',
+                iconClass: 'bg-rose-500/20 text-rose-300 border border-rose-500/30',
+                title: `Delete ${player.name}?`,
+                text: 'Their high scores, statistics and fact mastery will be permanently removed.',
+                confirmLabel: 'Delete',
+                confirmClass: 'bg-rose-600 hover:bg-rose-500',
+                cancelLabel: 'Cancel',
+                onConfirm: () => {
+                    [STORAGE_KEY_SCORES, STORAGE_KEY_STATS, STORAGE_KEY_FACTS].forEach(base => {
+                        localStorage.removeItem(playerKey(base, player.id));
+                    });
+                    playersData.players = playersData.players.filter(p => p.id !== player.id);
+                    if (playersData.activeId === player.id) {
+                        playersData.activeId = playersData.players[0].id;
+                        loadPlayerData();
+                    }
+                    savePlayers();
+                    renderActivePlayer();
+                    renderPlayerList();
+                }
+            });
+        }
+
+        // Native app hooks (Capacitor): Android back button, and pausing when the app goes to the background
+        const CapacitorApp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+        if (CapacitorApp) {
+            CapacitorApp.addListener('backButton', () => {
+                if (!handleBack()) CapacitorApp.exitApp();
+            });
+            CapacitorApp.addListener('pause', pauseSession);
         }
 
         // Initialize UI on window load
