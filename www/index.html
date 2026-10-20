@@ -167,8 +167,33 @@
                 </span>
                 <h2 class="text-2xl sm:text-4xl font-extrabold text-white">Select Your Practice Duration</h2>
                 <p class="text-slate-400 text-sm sm:text-base max-w-xl mx-auto">
-                    The adaptive algorithm tracks your speed on every single fact, like 7 × 8. Slow or missed facts automatically appear more often until you master them!
+                    The adaptive algorithm tracks every single fact, like 8 + 5 or 7 × 8. Tricky or missed facts automatically appear more often until you master them!
                 </p>
+            </div>
+
+            <!-- Operation Selection (several can be combined) -->
+            <div class="space-y-4">
+                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 text-center">
+                    What To Practice
+                </label>
+                <div class="grid grid-cols-4 gap-3 sm:gap-4">
+                    <button onclick="toggleOperation('add')" id="op-add" class="op-btn p-3 rounded-2xl glass-card text-center flex flex-col items-center">
+                        <span class="text-3xl font-extrabold font-mono-num text-white">+</span>
+                        <span class="text-[10px] sm:text-xs text-slate-400 font-medium">Add</span>
+                    </button>
+                    <button onclick="toggleOperation('sub')" id="op-sub" class="op-btn p-3 rounded-2xl glass-card text-center flex flex-col items-center">
+                        <span class="text-3xl font-extrabold font-mono-num text-white">−</span>
+                        <span class="text-[10px] sm:text-xs text-slate-400 font-medium">Subtract</span>
+                    </button>
+                    <button onclick="toggleOperation('mul')" id="op-mul" class="op-btn p-3 rounded-2xl glass-card text-center flex flex-col items-center">
+                        <span class="text-3xl font-extrabold font-mono-num text-white">×</span>
+                        <span class="text-[10px] sm:text-xs text-slate-400 font-medium">Multiply</span>
+                    </button>
+                    <button onclick="toggleOperation('div')" id="op-div" class="op-btn p-3 rounded-2xl glass-card text-center flex flex-col items-center">
+                        <span class="text-3xl font-extrabold font-mono-num text-white">÷</span>
+                        <span class="text-[10px] sm:text-xs text-slate-400 font-medium">Divide</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Time Selection Grid -->
@@ -260,7 +285,7 @@
                 <!-- Number Display -->
                 <div id="questionLine" class="text-5xl sm:text-7xl font-extrabold font-mono-num tracking-tight text-white flex justify-center items-center space-x-3 sm:space-x-4">
                     <span id="factor1">7</span>
-                    <span class="text-indigo-400">×</span>
+                    <span id="opSymbol" class="text-indigo-400">×</span>
                     <span id="factor2">8</span>
                     <span class="text-slate-500">=</span>
                     <span class="text-indigo-300">?</span>
@@ -332,7 +357,8 @@
                     <span id="resTotal" class="text-2xl sm:text-3xl font-extrabold font-mono-num text-white">0</span>
                 </div>
                 <div class="p-4 rounded-2xl glass-card">
-                    <span class="text-xs text-slate-400 block mb-1">Avg Speed</span>
+                    <!-- Shows "Correct" instead of speed for younger players -->
+                    <span id="resLastLabel" class="text-xs text-slate-400 block mb-1">Avg Speed</span>
                     <span id="resAvgSpeed" class="text-2xl sm:text-3xl font-extrabold font-mono-num text-purple-400">0.0s</span>
                 </div>
             </div>
@@ -349,7 +375,7 @@
                     Practice Again
                 </button>
                 <button onclick="switchTab('analytics')" class="flex-1 py-3.5 rounded-xl glass-card text-slate-300 hover:text-white font-bold text-sm">
-                    View Speed Analytics
+                    View Progress
                 </button>
             </div>
         </div>
@@ -358,7 +384,7 @@
         <div id="analyticsView" class="hidden glass-panel rounded-3xl p-6 sm:p-10 shadow-2xl space-y-6">
             <div class="flex justify-between items-center border-b border-slate-700/50 pb-4">
                 <div>
-                    <h2 class="text-2xl font-bold text-white">Speed & Weakness Analytics</h2>
+                    <h2 class="text-2xl font-bold text-white">Progress & Analytics</h2>
                     <p id="analyticsPlayer" class="text-xs text-slate-400">Stats for Player 1</p>
                 </div>
                 <button onclick="switchTab('setup')" class="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center space-x-1 shrink-0 pl-2">
@@ -367,8 +393,9 @@
                 </button>
             </div>
 
-            <!-- Mastery Grid: one cell per fact, 2×2 up to 12×12 -->
+            <!-- Mastery Grid: one cell per fact, one tab per operation -->
             <div class="p-4 rounded-2xl glass-card space-y-3">
+                <div id="gridTabs" class="grid grid-cols-4 gap-2"></div>
                 <div class="flex justify-between items-baseline">
                     <h3 class="text-sm font-semibold text-white">Fact Mastery</h3>
                     <span id="masterySummary" class="text-xs text-emerald-300 font-mono-num">0 / 66 mastered</span>
@@ -376,8 +403,13 @@
                 <div class="w-full bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
                     <div id="masteryBar" class="bg-emerald-500 h-full transition-all duration-500" style="width: 0%"></div>
                 </div>
-                <div id="masteryGrid" class="grid gap-[3px] text-[10px] font-mono-num text-slate-400" style="grid-template-columns: repeat(12, minmax(0, 1fr));"></div>
-                <div id="factDetail" class="text-xs text-slate-300 min-h-[1rem] text-center">Tap a square to see that fact's stats.</div>
+                <!-- A square sized for the largest grid, so switching tabs never resizes the squares or the card -->
+                <div class="w-full max-w-md mx-auto aspect-square flex justify-center items-start">
+                    <div id="masteryGrid" class="grid gap-[3px] text-[10px] font-mono-num text-slate-400"></div>
+                </div>
+                <!-- Room for two lines each, so the card keeps its height whatever the text -->
+                <div id="gridHint" class="text-[11px] text-slate-500 text-center min-h-[2.1rem] flex items-center justify-center"></div>
+                <div id="factDetail" class="text-xs text-slate-300 min-h-[2rem] text-center flex items-center justify-center">Tap a square to see that fact's stats.</div>
                 <div class="flex flex-wrap justify-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
                     <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-slate-700/60 mr-1.5"></span>New</span>
                     <span class="flex items-center"><span class="w-3 h-3 rounded-sm bg-rose-500/80 mr-1.5"></span>Struggling</span>
@@ -386,6 +418,8 @@
                 </div>
             </div>
 
+            <!-- Per-table speed (multiplication); hidden for younger players -->
+            <div id="speedSection" class="space-y-6">
             <p class="text-xs text-slate-400">Average response time per multiplication table (2 to 12)</p>
 
             <!-- Chart Container -->
@@ -408,10 +442,11 @@
                     <span id="weak3" class="text-lg font-bold text-white">Table --</span>
                 </div>
             </div>
+            </div>
 
             <div class="flex justify-between items-center pt-2">
                 <button onclick="resetStats()" class="text-xs text-rose-400/80 hover:text-rose-300 font-medium">
-                    <i class="fa-solid fa-trash mr-1"></i> Reset Speed Statistics
+                    <i class="fa-solid fa-trash mr-1"></i> Reset Statistics
                 </button>
             </div>
         </div>
@@ -431,12 +466,20 @@
 
             <div id="playerList" class="space-y-3"></div>
 
-            <form onsubmit="addPlayer(event)" class="flex gap-2">
+            <form onsubmit="addPlayer(event)" class="space-y-3">
+                <div class="flex gap-2">
                 <input id="newPlayerName" type="text" maxlength="20" placeholder="New player name" autocomplete="off"
                     class="flex-1 min-w-0 py-3 px-4 rounded-xl bg-slate-900/80 border-2 border-indigo-500/40 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400">
                 <button type="submit" class="px-5 rounded-xl btn-gradient text-white font-bold text-sm">
                     <i class="fa-solid fa-plus mr-1"></i> Add
                 </button>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="text-slate-400 mr-1">Age group:</span>
+                    <button type="button" id="age-young" onclick="setNewPlayerAge('young')" class="age-btn px-3 py-2 rounded-lg glass-card text-slate-300 font-semibold">5–7</button>
+                    <button type="button" id="age-older" onclick="setNewPlayerAge('older')" class="age-btn px-3 py-2 rounded-lg glass-card text-slate-300 font-semibold">8+</button>
+                </div>
+                <p class="text-[11px] text-slate-500">Ages 5–7 start with + and − and never see speed numbers (speed is still used to pick questions). You can change the age group later.</p>
             </form>
         </div>
 
@@ -513,6 +556,11 @@
             });
             localStorage.setItem(STORAGE_KEY_PLAYERS, JSON.stringify(playersData));
         }
+
+        playersData.players.forEach(p => {
+            if (!p.ageGroup) p.ageGroup = 'older';
+            if (!Array.isArray(p.ops) || p.ops.length === 0) p.ops = ['mul'];
+        });
 
         let highScores, tableStats, factStats;
 
@@ -602,10 +650,42 @@
         function updateRecordsUI() {
             [5, 10, 15, 20].forEach(min => {
                 const el = document.getElementById(`record-${min}`);
-                if (el) el.innerText = `Best: ${highScores[min] || 0}`;
+                if (el) el.innerText = `Best: ${highScores[scoreKey(min)] || 0}`;
             });
+            renderOperationButtons();
             updateWeaknessBanner();
             renderActivePlayer();
+        }
+
+        // High scores are kept per duration AND per mix of operations, so an easy "+" score
+        // never competes with a "×" one. Multiplication-only keeps the original keys ("5", "10", ...).
+        function scoreKey(minutes) {
+            const ops = getActiveOps();
+            return ops.length === 1 && ops[0] === 'mul' ? `${minutes}` : `${minutes}:${ops.join('+')}`;
+        }
+
+        function renderOperationButtons() {
+            const ops = getActiveOps();
+            OP_ORDER.forEach(op => {
+                const btn = document.getElementById(`op-${op}`);
+                const on = ops.includes(op);
+                btn.classList.toggle('border-indigo-500/80', on);
+                btn.classList.toggle('bg-indigo-500/10', on);
+                btn.setAttribute('aria-pressed', on);
+            });
+        }
+
+        function toggleOperation(op) {
+            const player = getActivePlayer();
+            const ops = getActiveOps();
+            if (ops.includes(op)) {
+                if (ops.length === 1) return; // always keep at least one
+                player.ops = ops.filter(o => o !== op);
+            } else {
+                player.ops = OP_ORDER.filter(o => o === op || ops.includes(o));
+            }
+            savePlayers();
+            updateRecordsUI();
         }
 
         function setDuration(minutes) {
@@ -638,8 +718,10 @@
             } else if (tabName === 'results') {
                 document.getElementById('resultsView').classList.remove('hidden');
             } else if (tabName === 'analytics') {
-                renderAnalyticsChart();
-                renderMasteryGrid();
+                const showSpeed = !isYoung() && getActiveOps().includes('mul');
+                document.getElementById('speedSection').classList.toggle('hidden', !showSpeed);
+                if (showSpeed) renderAnalyticsChart();
+                renderMasteryGrid(null);
                 document.getElementById('analyticsView').classList.remove('hidden');
             } else if (tabName === 'players') {
                 renderPlayerList();
@@ -651,37 +733,99 @@
         /* ==========================================================================
            ADAPTIVE QUESTION ENGINE
            ========================================================================== */
-        // Each fact is tracked on its own; 7×8 and 8×7 count as the same fact (66 facts from 2×2 to 12×12).
+        // Each fact is tracked on its own, e.g. "7x8", "8+5", "13-5", "56/8".
+        // Facts live on a grid: row r and column c of an operation's range produce one fact.
+        // + and × are commutative (8+5 is the same fact as 5+8); − and ÷ are the reverse of + and ×.
         // A fact's "speed" is a recent-weighted average, so improvement shows up quickly.
+        const OPERATIONS = {
+            add: { symbol: '+', keySymbol: '+', name: 'Addition',       range: [1, 10], commutative: true,
+                   make: (r, c) => ({ x: r, y: c, answer: r + c }),
+                   gridHint: '' },
+            sub: { symbol: '−', keySymbol: '-', name: 'Subtraction',    range: [1, 10], commutative: false,
+                   make: (r, c) => ({ x: r + c, y: r, answer: c }),           // (c + r) − r = c
+                   gridHint: 'Rows: number taken away · Columns: answer' },
+            mul: { symbol: '×', keySymbol: 'x', name: 'Multiplication', range: [2, 12], commutative: true,
+                   make: (r, c) => ({ x: r, y: c, answer: r * c }),
+                   gridHint: '' },
+            div: { symbol: '÷', keySymbol: '/', name: 'Division',       range: [2, 12], commutative: false,
+                   make: (r, c) => ({ x: r * c, y: r, answer: c }),           // (c × r) ÷ r = c
+                   gridHint: 'Rows: number divided by · Columns: answer' }
+        };
+        const OP_ORDER = ['add', 'sub', 'mul', 'div'];
+        // Columns in the widest mastery grid (one header column + one per number)
+        const MAX_GRID_COLUMNS = Math.max(...OP_ORDER.map(op => OPERATIONS[op].range[1] - OPERATIONS[op].range[0] + 2));
+
         const FACT_SPEED_SMOOTHING = 0.4;   // weight of the newest answer in the running average
         const WRONG_ANSWER_PENALTY_SEC = 8; // a mistake counts like a very slow answer
         const MAX_COUNTED_TIME_SEC = 15;    // cap so a distracted pause doesn't skew the average
-        const MASTERED_SPEED_SEC = 3;       // fast enough to be "automatic"
-        const STRUGGLING_SPEED_SEC = 6;
-        const TOTAL_FACTS = 66;
 
         // How often each mastery level is asked, relative to a mastered fact
         const LEVEL_WEIGHTS = { new: 3, struggling: 8, learning: 4, mastered: 1 };
 
         let lastFactKey = null;
 
-        function factKey(a, b) {
-            return a <= b ? `${a}x${b}` : `${b}x${a}`;
+        function getActiveOps() {
+            return getActivePlayer().ops;
         }
 
-        function getFactLevel(stat) {
+        function isYoung(player = getActivePlayer()) {
+            return player.ageGroup === 'young';
+        }
+
+        // Seconds that count as "automatic" (mastered) and as struggling
+        function speedTargets(op, player) {
+            if (isYoung(player)) return { mastered: 5, struggling: 9 };
+            if (op === 'div') return { mastered: 4, struggling: 7 };
+            return { mastered: 3, struggling: 6 };
+        }
+
+        function factFor(op, r, c) {
+            const def = OPERATIONS[op];
+            const { x, y, answer } = def.make(r, c);
+            const key = def.commutative
+                ? `${Math.min(x, y)}${def.keySymbol}${Math.max(x, y)}`
+                : `${x}${def.keySymbol}${y}`;
+            return { op, key, x, y, answer };
+        }
+
+        function allFacts(op) {
+            const def = OPERATIONS[op];
+            const [lo, hi] = def.range;
+            const facts = [];
+            for (let r = lo; r <= hi; r++) {
+                for (let c = def.commutative ? r : lo; c <= hi; c++) facts.push(factFor(op, r, c));
+            }
+            return facts;
+        }
+
+        function opOfKey(key) {
+            const sym = key.match(/[+\-x\/]/)[0];
+            return OP_ORDER.find(op => OPERATIONS[op].keySymbol === sym);
+        }
+
+        function formatFactKey(key) {
+            const op = opOfKey(key);
+            return key.replace(OPERATIONS[op].keySymbol, ` ${OPERATIONS[op].symbol} `);
+        }
+
+        function getFactLevel(stat, op, player) {
             if (!stat || stat.attempts === 0) return 'new';
-            if (stat.streak === 0 || stat.speed > STRUGGLING_SPEED_SEC) return 'struggling';
-            if (stat.speed <= MASTERED_SPEED_SEC && stat.streak >= 2) return 'mastered';
+            const target = speedTargets(op, player);
+            if (stat.streak === 0 || stat.speed > target.struggling) return 'struggling';
+            if (stat.speed <= target.mastered && stat.streak >= 2) return 'mastered';
             return 'learning';
         }
 
-        function countMastered(stats) {
-            return Object.values(stats).filter(s => getFactLevel(s) === 'mastered').length;
+        function factLevel(key, stats = factStats, player = getActivePlayer()) {
+            return getFactLevel(stats[key], opOfKey(key), player);
         }
 
-        function recordFact(a, b, isCorrect, responseTimeSec) {
-            const key = factKey(a, b);
+        function countMastered(stats, player = getActivePlayer(), ops = null) {
+            return Object.keys(stats).filter(key =>
+                (!ops || ops.includes(opOfKey(key))) && factLevel(key, stats, player) === 'mastered').length;
+        }
+
+        function recordFact(key, isCorrect, responseTimeSec) {
             const stat = factStats[key] || { attempts: 0, correct: 0, speed: null, streak: 0 };
             const sample = isCorrect ? Math.min(responseTimeSec, MAX_COUNTED_TIME_SEC) : WRONG_ANSWER_PENALTY_SEC;
             stat.speed = stat.speed === null ? sample : stat.speed * (1 - FACT_SPEED_SMOOTHING) + sample * FACT_SPEED_SMOOTHING;
@@ -695,19 +839,18 @@
             factStats[key] = stat;
         }
 
-        // Weighted random pick over all facts, never repeating the previous one back-to-back
+        // Weighted random pick over the chosen operations' facts, never repeating the previous one back-to-back
         function pickFact() {
             const candidates = [];
             let totalWeight = 0;
-            for (let a = 2; a <= 12; a++) {
-                for (let b = a; b <= 12; b++) {
-                    const key = factKey(a, b);
-                    if (key === lastFactKey) continue;
-                    const weight = LEVEL_WEIGHTS[getFactLevel(factStats[key])];
-                    candidates.push({ a, b, key, weight });
-                    totalWeight += weight;
-                }
-            }
+            getActiveOps().forEach(op => {
+                allFacts(op).forEach(fact => {
+                    if (fact.key === lastFactKey) return;
+                    fact.weight = LEVEL_WEIGHTS[factLevel(fact.key)];
+                    candidates.push(fact);
+                    totalWeight += fact.weight;
+                });
+            });
             let randomNum = Math.random() * totalWeight;
             for (const c of candidates) {
                 if (randomNum < c.weight) return c;
@@ -719,28 +862,31 @@
         function generateQuestion() {
             const fact = pickFact();
             lastFactKey = fact.key;
-            let num1 = fact.a;
-            let num2 = fact.b;
+            let num1 = fact.x;
+            let num2 = fact.y;
 
-            // Randomly swap positions for variety
-            if (Math.random() > 0.5) {
+            // Randomly swap positions for variety (only where order doesn't matter)
+            if (OPERATIONS[fact.op].commutative && Math.random() > 0.5) {
                 let temp = num1;
                 num1 = num2;
                 num2 = temp;
             }
 
             currentQuestion = {
+                op: fact.op,
+                key: fact.key,
                 num1: num1,
                 num2: num2,
-                answer: num1 * num2
+                answer: fact.answer
             };
 
             // Display question
             document.getElementById('factor1').innerText = num1;
+            document.getElementById('opSymbol').innerText = OPERATIONS[fact.op].symbol;
             document.getElementById('factor2').innerText = num2;
 
             // Highlight adaptive weight status
-            const level = getFactLevel(factStats[fact.key]);
+            const level = factLevel(fact.key);
             const tag = document.getElementById('adaptiveTag');
             if (level === 'new') {
                 tag.className = "px-2.5 py-1 rounded-md bg-sky-500/10 text-sky-300 border border-sky-500/20";
@@ -909,7 +1055,7 @@
             lastFactKey = null;
 
             document.getElementById('scoreDisplay').innerText = "0";
-            document.getElementById('targetRecordDisplay').innerText = highScores[selectedDuration] || 0;
+            document.getElementById('targetRecordDisplay').innerText = highScores[scoreKey(selectedDuration)] || 0;
             
             switchTab('quiz');
             generateQuestion();
@@ -952,19 +1098,22 @@
 
             const num1 = currentQuestion.num1;
             const num2 = currentQuestion.num2;
+            const isTimesTable = currentQuestion.op === 'mul'; // the per-table chart covers multiplication
 
             // Track stats for both factors
-            [num1, num2].forEach(n => {
-                if (!tableStats[n]) tableStats[n] = { totalTime: 0, count: 0, mistakes: 0 };
-                tableStats[n].totalTime += responseTimeSec;
-                tableStats[n].count += 1;
-            });
+            if (isTimesTable) {
+                [num1, num2].forEach(n => {
+                    if (!tableStats[n]) tableStats[n] = { totalTime: 0, count: 0, mistakes: 0 };
+                    tableStats[n].totalTime += responseTimeSec;
+                    tableStats[n].count += 1;
+                });
+            }
 
             // Animate only the question itself, not the keypad
             const qContainer = document.getElementById('questionLine');
 
             const isCorrect = userVal === currentQuestion.answer;
-            recordFact(num1, num2, isCorrect, responseTimeSec);
+            recordFact(currentQuestion.key, isCorrect, responseTimeSec);
 
             if (isCorrect) {
                 // Correct answer
@@ -979,8 +1128,10 @@
             } else {
                 // Wrong answer
                 playSound('wrong');
-                tableStats[num1].mistakes += 1;
-                tableStats[num2].mistakes += 1;
+                if (isTimesTable) {
+                    tableStats[num1].mistakes += 1;
+                    tableStats[num2].mistakes += 1;
+                }
 
                 qContainer.classList.add('animate-error');
                 setTimeout(() => qContainer.classList.remove('animate-error'), 400);
@@ -1029,10 +1180,11 @@
 
             // Save high scores if beaten
             let isNewRecord = false;
-            let currentBest = highScores[selectedDuration] || 0;
+            const recordKey = scoreKey(selectedDuration);
+            let currentBest = highScores[recordKey] || 0;
 
             if (sessionState.score > currentBest) {
-                highScores[selectedDuration] = sessionState.score;
+                highScores[recordKey] = sessionState.score;
                 localStorage.setItem(playerKey(STORAGE_KEY_SCORES), JSON.stringify(highScores));
                 isNewRecord = true;
             }
@@ -1049,7 +1201,14 @@
             let avgSpeed = sessionState.totalQuestions > 0 
                 ? (sessionState.totalResponseTime / sessionState.totalQuestions).toFixed(2)
                 : 0;
-            document.getElementById('resAvgSpeed').innerText = `${avgSpeed}s`;
+            // Younger players never see timings: show how many they got right instead
+            if (isYoung()) {
+                document.getElementById('resLastLabel').innerText = 'Correct';
+                document.getElementById('resAvgSpeed').innerText = sessionState.correctAnswers;
+            } else {
+                document.getElementById('resLastLabel').innerText = 'Avg Speed';
+                document.getElementById('resAvgSpeed').innerText = `${avgSpeed}s`;
+            }
 
             const newlyMastered = countMastered(factStats) - sessionState.masteredAtStart;
             document.getElementById('resultsSubtext').innerText = newlyMastered > 0
@@ -1074,22 +1233,24 @@
         function updateWeaknessBanner() {
             const textEl = document.getElementById('weaknessText');
             // Prefer specific weak facts; fall back to per-table data recorded before fact tracking existed
-            const weakFacts = Object.entries(factStats)
-                .filter(([, s]) => ['struggling', 'learning'].includes(getFactLevel(s)))
-                .sort((x, y) => y[1].speed - x[1].speed)
+            const ops = getActiveOps();
+            const practiced = Object.keys(factStats).filter(key => ops.includes(opOfKey(key)));
+            const weakFacts = practiced
+                .filter(key => ['struggling', 'learning'].includes(factLevel(key)))
+                .sort((x, y) => factStats[y].speed - factStats[x].speed)
                 .slice(0, 3)
-                .map(([key]) => key.replace('x', '×'));
+                .map(formatFactKey);
             if (weakFacts.length > 0) {
                 textEl.innerText = `Focusing extra practice on: ${weakFacts.join(', ')}`;
                 return;
             }
-            if (Object.keys(factStats).length > 0) {
+            if (practiced.length > 0) {
                 textEl.innerText = "Everything you've practiced is mastered. Time to learn new facts!";
                 return;
             }
             let sorted = getSortedWeakness();
-            if (sorted.length === 0) {
-                textEl.innerText = "No prior speed data recorded yet. Practice all tables equally!";
+            if (sorted.length === 0 || !ops.includes('mul') || isYoung()) {
+                textEl.innerText = "Nothing practiced yet. Every fact gets an equal chance to start!";
             } else {
                 let top3 = sorted.slice(0, 3).map(item => `Table ${item.table} (${item.avg.toFixed(1)}s)`).join(', ');
                 textEl.innerText = `Focusing extra practice on: ${top3}`;
@@ -1192,9 +1353,34 @@
             mastered:   { cell: 'bg-emerald-500/80', label: 'Mastered' }
         };
 
-        function renderMasteryGrid() {
+        let gridOp = null; // operation shown in the mastery grid
+
+        function renderMasteryGrid(op = gridOp) {
+            // Default to the first operation being practiced
+            if (!op) op = getActiveOps()[0];
+            gridOp = op;
+            const def = OPERATIONS[op];
+            const [lo, hi] = def.range;
+
+            const tabs = document.getElementById('gridTabs');
+            tabs.replaceChildren();
+            OP_ORDER.forEach(tabOp => {
+                const tab = document.createElement('button');
+                const on = tabOp === op;
+                tab.className = `py-1.5 rounded-lg text-lg font-bold font-mono-num ${on ? 'bg-indigo-500/30 text-white border border-indigo-500/60' : 'text-slate-400 border border-transparent'}`;
+                tab.textContent = OPERATIONS[tabOp].symbol;
+                tab.setAttribute('aria-label', OPERATIONS[tabOp].name);
+                tab.setAttribute('aria-pressed', on);
+                tab.addEventListener('click', () => renderMasteryGrid(tabOp));
+                tabs.appendChild(tab);
+            });
+
             const grid = document.getElementById('masteryGrid');
             grid.replaceChildren();
+            const columns = hi - lo + 2;
+            grid.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
+            // Smaller grids get proportionally narrower, keeping every square the same size
+            grid.style.width = `${(columns / MAX_GRID_COLUMNS) * 100}%`;
 
             const header = (text) => {
                 const el = document.createElement('div');
@@ -1203,37 +1389,42 @@
                 return el;
             };
 
-            grid.appendChild(header('×'));
-            for (let c = 2; c <= 12; c++) grid.appendChild(header(c));
+            grid.appendChild(header(def.symbol));
+            for (let c = lo; c <= hi; c++) grid.appendChild(header(c));
 
-            for (let r = 2; r <= 12; r++) {
+            for (let r = lo; r <= hi; r++) {
                 grid.appendChild(header(r));
-                for (let c = 2; c <= 12; c++) {
-                    const level = getFactLevel(factStats[factKey(r, c)]);
+                for (let c = lo; c <= hi; c++) {
+                    const fact = factFor(op, r, c);
+                    const level = factLevel(fact.key);
                     const cell = document.createElement('button');
                     cell.className = `aspect-square rounded-[3px] ${LEVEL_STYLES[level].cell}`;
-                    cell.setAttribute('aria-label', `${r} × ${c}: ${LEVEL_STYLES[level].label}`);
-                    cell.addEventListener('click', () => showFactDetail(r, c));
+                    cell.setAttribute('aria-label', `${fact.x} ${def.symbol} ${fact.y}: ${LEVEL_STYLES[level].label}`);
+                    cell.addEventListener('click', () => showFactDetail(fact));
                     grid.appendChild(cell);
                 }
             }
 
-            const mastered = countMastered(factStats);
-            document.getElementById('masterySummary').innerText = `${mastered} / ${TOTAL_FACTS} mastered`;
-            document.getElementById('masteryBar').style.width = `${(mastered / TOTAL_FACTS) * 100}%`;
+            const total = allFacts(op).length;
+            const mastered = countMastered(factStats, getActivePlayer(), [op]);
+            document.getElementById('masterySummary').innerText = `${mastered} / ${total} mastered`;
+            document.getElementById('masteryBar').style.width = `${(mastered / total) * 100}%`;
+            document.getElementById('gridHint').innerText = def.gridHint;
             document.getElementById('factDetail').innerText = "Tap a square to see that fact's stats.";
         }
 
-        function showFactDetail(a, b) {
-            const stat = factStats[factKey(a, b)];
-            const level = getFactLevel(stat);
+        function showFactDetail(fact) {
+            const stat = factStats[fact.key];
+            const level = factLevel(fact.key);
             const el = document.getElementById('factDetail');
+            const text = `${fact.x} ${OPERATIONS[fact.op].symbol} ${fact.y} = ${fact.answer}`;
             if (level === 'new') {
-                el.innerText = `${a} × ${b} = ${a * b} · Not practiced yet`;
+                el.innerText = `${text} · Not practiced yet`;
                 return;
             }
             const accuracy = Math.round((stat.correct / stat.attempts) * 100);
-            el.innerText = `${a} × ${b} = ${a * b} · ${LEVEL_STYLES[level].label} · ${stat.attempts} ${stat.attempts === 1 ? 'try' : 'tries'} · ${accuracy}% correct · ~${stat.speed.toFixed(1)}s`;
+            const speed = isYoung() ? '' : ` · ~${stat.speed.toFixed(1)}s`;
+            el.innerText = `${text} · ${LEVEL_STYLES[level].label} · ${stat.attempts} ${stat.attempts === 1 ? 'try' : 'tries'} · ${accuracy}% correct${speed}`;
         }
 
         /* ==========================================================================
@@ -1288,7 +1479,8 @@
                 name.textContent = player.name;
                 const sub = document.createElement('span');
                 sub.className = 'text-xs text-slate-400 block';
-                sub.textContent = `${countMastered(facts)} / ${TOTAL_FACTS} mastered · Best score ${best}`;
+                const masteredCount = countMastered(facts, player);
+                sub.textContent = `${masteredCount} ${masteredCount === 1 ? 'fact' : 'facts'} mastered · Best score ${best}`;
                 text.append(name, sub);
                 select.append(makeAvatar(player, 'w-10 h-10'), text);
                 row.appendChild(select);
@@ -1301,6 +1493,18 @@
                     btn.addEventListener('click', onClick);
                     return btn;
                 };
+
+                // Age group chip: tap to switch between 5–7 and 8+
+                const age = document.createElement('button');
+                age.className = `shrink-0 px-2 py-1 rounded-md text-[11px] font-semibold border ${isYoung(player) ? 'bg-sky-500/10 text-sky-300 border-sky-500/30' : 'bg-purple-500/10 text-purple-300 border-purple-500/30'}`;
+                age.textContent = isYoung(player) ? 'Ages 5–7' : 'Ages 8+';
+                age.setAttribute('aria-label', `Change age group for ${player.name}`);
+                age.addEventListener('click', () => {
+                    player.ageGroup = isYoung(player) ? 'older' : 'young';
+                    savePlayers();
+                    renderPlayerList();
+                });
+                row.appendChild(age);
 
                 row.appendChild(iconButton('fa-pen', `Rename ${player.name}`, () => startRename(row, name, player)));
                 if (playersData.players.length > 1) {
@@ -1318,6 +1522,18 @@
             switchTab('setup');
         }
 
+        let newPlayerAge = 'older';
+
+        function setNewPlayerAge(age) {
+            newPlayerAge = age;
+            ['young', 'older'].forEach(a => {
+                const btn = document.getElementById(`age-${a}`);
+                btn.classList.toggle('border-indigo-500/80', a === age);
+                btn.classList.toggle('bg-indigo-500/10', a === age);
+                btn.classList.toggle('text-white', a === age);
+            });
+        }
+
         function addPlayer(e) {
             e.preventDefault();
             const input = document.getElementById('newPlayerName');
@@ -1326,7 +1542,13 @@
                 input.focus();
                 return;
             }
-            const player = { id: `p${playersData.nextId}`, name, color: playersData.nextId - 1 };
+            const player = {
+                id: `p${playersData.nextId}`,
+                name,
+                color: playersData.nextId - 1,
+                ageGroup: newPlayerAge,
+                ops: newPlayerAge === 'young' ? ['add', 'sub'] : ['mul']
+            };
             playersData.nextId += 1;
             playersData.players.push(player);
             input.value = '';
@@ -1399,6 +1621,7 @@
 
         // Initialize UI on window load
         window.onload = function() {
+            setNewPlayerAge('older');
             updateRecordsUI();
         };
     </script>
